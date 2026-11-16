@@ -56,7 +56,54 @@ if [ "${1:-}" = --app-name ]; then
   name=$2
   shift 2
 fi
+[ "${1:-}" != --no-input ] || shift
+# The state of an instance is in files: $STUB_STATE/<name>.signed-out (not signed in to Docker), <name>.policy (its
+# network policy) and <name>.settings.json (the answer of "settings ls --json").
 case "${1:-} ${2:-}" in
+  "ls "*)
+    if [ -e "$STUB_STATE/$name.signed-out" ]; then
+      echo "error: not signed in to Docker" >&2
+      exit 1
+    fi
+    ;;
+  "login "*)
+    # STUB_LOGIN_FAILS=1: the sign-in does not work.
+    [ -n "${STUB_LOGIN_FAILS:-}" ] || rm -f "$STUB_STATE/$name.signed-out"
+    ;;
+  "policy init")
+    # STUB_POLICY_FAILS=1: sbx cannot set the policy.
+    if [ -n "${STUB_POLICY_FAILS:-}" ]; then
+      echo "error: daemon fault" >&2
+      exit 1
+    fi
+    if [ -e "$STUB_STATE/$name.policy" ]; then
+      echo "error: global network policy is already initialized; reset it first to change it" >&2
+      exit 1
+    fi
+    echo "$3" >"$STUB_STATE/$name.policy"
+    ;;
+  "policy ls")
+    echo "POLICY             SOURCE   APPLIES TO   SUMMARY"
+    [ ! -e "$STUB_STATE/$name.policy" ] ||
+      echo "default-$(cat "$STUB_STATE/$name.policy")   local    all          network"
+    echo "local-policy       local    all          filesystem read: 1 allow"
+    ;;
+  "settings ls")
+    if [ -f "$STUB_STATE/$name.settings.json" ]; then
+      cat "$STUB_STATE/$name.settings.json"
+    else
+      echo '[]'
+    fi
+    ;;
+  "settings set")
+    # STUB_RESTART holds the keys whose change needs a restart of the daemon.
+    case " ${STUB_RESTART:-} " in
+      *" $3 "*)
+        echo "warning: this setting takes effect only after a daemon restart"
+        echo "  try: sbx daemon restart"
+        ;;
+    esac
+    ;;
   "daemon status")
     # STUB_SOCKET_DIR is the folder in the socket path; without it, the folder holds the name as sbx does it.
     dir=sandboxes-$name
@@ -154,4 +201,29 @@ finish() {
   echo "$((count - fails)) of $count passed"
   [ "$fails" -eq 0 ] || exit 1
   passed=1
+}
+
+# typed <text>: writes the text as a person does, with a wait before it and before the end of the input. When the
+# text and the end come at once, script gives the end of the input to the terminal first.
+typed() {
+  sleep 1
+  printf '%s' "$1"
+  sleep 1
+}
+
+# run_typed <folder> <text> [VAR=value]... -- <command> [argument...]: as run, but stdin is a terminal (from script)
+# that gets the text. The terminal takes stdout and stderr, so both are in $out.
+run_typed() {
+  local dir=$1 text=$2
+  local envs=("HOME=$home" "XDG_CONFIG_HOME=$home/.config" "PATH=$path" "STUB_LOG=$calls" "STUB_STATE=$state")
+  shift 2
+  while [ "$1" != -- ]; do
+    envs+=("$1")
+    shift
+  done
+  shift
+  : >"$calls"
+  : >"$err"
+  rc=0
+  typed "$text" | (cd "$dir" && exec env -i "${envs[@]}" script -q /dev/null "$@") >"$out" 2>&1 || rc=$?
 }

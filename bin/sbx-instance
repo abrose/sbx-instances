@@ -19,6 +19,7 @@ SI_ROOT=$(cd -P "$(dirname "$self")/.." && pwd)
 usage() {
   cat >&2 <<'EOF'
 usage: sbx-instance <command>
+  add [<name>] [option...]       set up an instance and its folders; it asks what no option gives
   list                           print the names on the list
   which                          print the instance that a plain sbx uses in this folder
   run <name> -- <sbx arguments>  run sbx in a named instance, from any folder
@@ -93,5 +94,10 @@ case "$command" in
   which) cmd_which "$@" ;;
   run) cmd_run "$@" ;;
   remove) cmd_remove "$@" ;;
+  add)
+    # shellcheck source=lib/add.sh
+    . "$SI_ROOT/lib/add.sh"
+    cmd_add "$@"
+    ;;
   *) usage ;;
 esac
