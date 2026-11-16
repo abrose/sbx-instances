@@ -109,9 +109,18 @@ case "${1:-} ${2:-}" in
     dir=sandboxes-$name
     [ "$name" != default ] || dir=sandboxes
     dir=${STUB_SOCKET_DIR:-$dir}
-    echo "  Status:  ● running"
-    echo "  Socket:  /stub/Application Support/$dir/sandboxd/sandboxd.sock"
-    echo "  Logs:    /stub/Application Support/$dir/sandboxd/daemon.log"
+    # STUB_STOPPED holds the instances whose daemon does not run.
+    case " ${STUB_STOPPED:-} " in
+      *" $name "*)
+        echo "  Status:  stopped"
+        echo "  Socket:  /stub/.sbx/${STUB_SOCKET_DIR:-run_$name}/d/sandboxd.sock (not connected)"
+        ;;
+      *)
+        echo "  Status:  ● running"
+        echo "  Socket:  /stub/Application Support/$dir/sandboxd/sandboxd.sock"
+        echo "  Logs:    /stub/Application Support/$dir/sandboxd/daemon.log"
+        ;;
+    esac
     ;;
 esac
 exit 0

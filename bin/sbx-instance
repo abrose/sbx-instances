@@ -23,6 +23,7 @@ usage: sbx-instance <command>
   list                           print the names on the list
   which                          print the instance that a plain sbx uses in this folder
   run <name> -- <sbx arguments>  run sbx in a named instance, from any folder
+  check                          test the setup; run it after each update of sbx
   remove <name>                  take a name off the list; nothing else is deleted
 EOF
   exit 2
@@ -94,6 +95,11 @@ case "$command" in
   which) cmd_which "$@" ;;
   run) cmd_run "$@" ;;
   remove) cmd_remove "$@" ;;
+  check)
+    # shellcheck source=lib/check.sh
+    . "$SI_ROOT/lib/check.sh"
+    cmd_check "$@"
+    ;;
   add)
     # shellcheck source=lib/add.sh
     . "$SI_ROOT/lib/add.sh"
