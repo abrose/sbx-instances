@@ -34,6 +34,10 @@ Tested with sbx v0.53.0, with bash 3.2 and bash 5, on macOS.
 
    `install.sh` does not replace a file that is not its own link. At its end it runs `sbx-instance check`.
 
+   A shell that is open at the install can still call the real `sbx`, with no instance and no message: a shell
+   remembers the path of a command. Open a new terminal, or run `rehash` (zsh) or `hash -r` (bash) in each open
+   shell.
+
 3. Add an instance for each account:
 
    ```bash
@@ -89,7 +93,7 @@ sbx exec <sandbox> -- <command> --app-name x
 |---|---|
 | `sbx-instance add [<name>]` | The wizard: sets up an instance and its folders |
 | `sbx-instance list` | Prints the names on the list, one in each line |
-| `sbx-instance which` | Prints the instance that a plain `sbx` uses in the working folder (the name on stdout, the marker file on stderr) |
+| `sbx-instance which` | Prints the instance that a plain `sbx` uses in the working folder (the name on stdout, the marker file on stderr). It refuses with status 64 when the wrapper is not the first `sbx` in `PATH` |
 | `sbx-instance run <name> -- <sbx arguments>` | Runs `sbx` in a named instance, from any folder. The marker files do not count |
 | `sbx-instance check` | Tests the setup. Run it after each update of sbx |
 | `sbx-instance remove <name>` | Takes a name off the list. It deletes nothing else |
@@ -99,7 +103,8 @@ in each line. A line that starts with `#` is a comment.
 
 ### The wizard
 
-`sbx-instance add` asks four questions, shows one summary, and acts only after a yes:
+`sbx-instance add` asks four questions, shows one summary, and acts only after a yes. A no changes nothing and
+exits with status 1. The wizard needs `jq`.
 
 1. The name of the instance.
 2. The network policy of a new instance: `deny-all` (the proposal), `balanced` or `allow-all`.
@@ -111,9 +116,11 @@ Then it does these steps. It leaves a step that is done already, so a second run
 
 1. It adds the name to the list.
 2. It runs `sbx login` in the instance when the instance is not signed in to Docker. You sign in in the terminal.
+   With no terminal, the wizard runs no sign-in: it stops and prints the command.
 3. It sets the network policy when the instance has none.
-4. It copies each setting that the source instance changed and that differs. When sbx asks for it, the wizard
-   restarts the daemon of the instance.
+4. It copies each setting that the source instance changed and that differs. When sbx asks for a restart of the
+   daemon, the wizard restarts the daemon of a new instance. It does not restart the daemon of `default` or of
+   an instance that was on the list before: such an instance can have sandboxes in use. It prints the command.
 5. It writes the marker files. It never changes a marker file that names another instance.
 6. It prints the steps that are left for you: load your template, create a sandbox, and run `/login` in Claude in
    that sandbox. One Claude login holds for all sandboxes of the instance.
@@ -167,7 +174,12 @@ They do not touch your instances.
 for name in lib sbx sbx-instance add check install; do bash "tests/$name.sh" || break; done
 ```
 
-Run them with the bash of macOS too:
+Each test runs the scripts with the bash that runs the test. Run them with bash 5 and with the bash of macOS
+(3.2). A plain `bash` can be either one: `bash --version` shows it.
+
+```bash
+for name in lib sbx sbx-instance add check install; do /opt/homebrew/bin/bash "tests/$name.sh" || break; done
+```
 
 ```bash
 for name in lib sbx sbx-instance add check install; do /bin/bash "tests/$name.sh" || break; done

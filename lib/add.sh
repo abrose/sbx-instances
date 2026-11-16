@@ -60,7 +60,7 @@ add_value() {
 
 cmd_add() {
   local name="" policy="" source="" yes=0 item dir file found above answer out key value restart=0
-  local folders=() dirs=() notes=() overrides="[]" keys="" target
+  local folders=() dirs=() notes=() overrides="[]" keys="" target may_restart=1
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -152,6 +152,12 @@ cmd_add() {
     keys=$(jq -r '.[].key' <<<"$overrides")
   fi
 
+  # The daemon of an instance that can have sandboxes in use is not restarted: the instance of sbx itself, and an
+  # instance that was on the list before this run.
+  if [ "$name" = default ] || si_listed "$name"; then
+    may_restart=0
+  fi
+
   echo "The setup of the sbx instance '$name':"
   if si_listed "$name"; then
     echo "  list:            '$name' is on the list already"
@@ -167,6 +173,12 @@ cmd_add() {
     for key in $keys; do
       echo "                     $key = $(add_value "$overrides" "$key")"
     done
+    if [ "$may_restart" -eq 1 ]; then
+      echo "                   the daemon of '$name' restarts when a changed setting needs it"
+    else
+      echo "                   no restart of the daemon of '$name', as it can have sandboxes in use:"
+      echo "                   when a changed setting needs a restart, the wizard prints the command"
+    fi
   fi
   if [ ${#notes[@]} -eq 0 ]; then
     echo "  marker files:    none"
@@ -181,7 +193,7 @@ cmd_add() {
       y | Y | yes) ;;
       *)
         echo "nothing is changed"
-        return 0
+        return 1
         ;;
     esac
   fi
@@ -201,6 +213,10 @@ cmd_add() {
   if in_instance "$name" --no-input ls >/dev/null 2>&1; then
     echo "Docker sign-in: signed in already"
   else
+    [ -t 0 ] ||
+      add_stop 1 "the instance '$name' is not signed in to Docker, and there is no terminal for the sign-in." \
+        "Sign in on a terminal, then run the wizard again:" \
+        "sbx-instance run $name -- login"
     echo "Docker sign-in: sbx login runs now, for the instance '$name'"
     in_instance "$name" login || true
     in_instance "$name" --no-input ls >/dev/null 2>&1 ||
@@ -238,10 +254,14 @@ cmd_add() {
       echo "settings: $key = $value"
       case "$out" in *"daemon restart"*) restart=1 ;; esac
     done
-    if [ "$restart" -eq 1 ]; then
+    if [ "$restart" -eq 1 ] && [ "$may_restart" -eq 1 ]; then
       in_instance "$name" --no-input daemon restart >/dev/null ||
         add_stop 1 "the restart of the daemon fails. Run: sbx-instance run $name -- daemon restart"
       echo "settings: restarted the daemon of '$name', as a changed setting needs it"
+    elif [ "$restart" -eq 1 ]; then
+      echo "settings: a changed setting takes effect only after a restart of the daemon of '$name'."
+      echo "    A restart can stop the work in its sandboxes. Run it when no sandbox is in use:"
+      echo "    sbx-instance run $name -- daemon restart"
     fi
   fi
 

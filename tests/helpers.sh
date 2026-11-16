@@ -121,6 +121,8 @@ case "${1:-} ${2:-}" in
         echo "  Logs:    /stub/Application Support/$dir/sandboxd/daemon.log"
         ;;
     esac
+    # STUB_STATUS_MORE=1: the answer has a second Status line, for a part of the daemon that does not run.
+    [ -z "${STUB_STATUS_MORE:-}" ] || echo "  Status:  stopped (kit registry)"
     ;;
 esac
 exit 0

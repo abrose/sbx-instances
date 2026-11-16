@@ -26,5 +26,7 @@ cat <<EOF
 The links are in $bin.
 From now on, a plain sbx in a folder with no .sbx-instance file refuses. A folder gets its instance from the
 nearest .sbx-instance file. For the sandboxes that exist in the instance of sbx itself: sbx-instance add default
+A shell that is open now can still call the real sbx, with no instance and no message: the shell remembers the
+path of a command. Open a new terminal, or run "rehash" (zsh) or "hash -r" (bash) in each open shell.
 EOF
 "$bin/sbx-instance" check

@@ -43,6 +43,12 @@ run "$home/p/a/b" -- sbx-instance which
 expect "which prints the name alone on stdout" out_is alpha
 expect "which names the marker file on stderr" grep -qF "$home/p/.sbx-instance" "$err"
 expect "which calls no sbx" calls_are
+# The real sbx before the wrapper in PATH: a plain sbx there uses no instance, so which must not name one.
+run "$home/p/a/b" "PATH=$real:$wbin:$shell:/usr/bin:/bin" -- sbx-instance which
+expect "which, the real sbx is first in PATH: refused" refused
+expect "which, the real sbx is first in PATH: the message names it" said "$real/sbx"
+run "$home/p/a/b" "PATH=$wbin/sbx-instance-only:$shell:/usr/bin:/bin" -- "$wbin/sbx-instance" which
+expect "which, no sbx in PATH: refused" refused
 run "$home/none" -- sbx-instance which
 expect "which with no marker file: refused as the wrapper does" refused
 expect "which with no marker file: the message of the wrapper" said "sbx-instance add"

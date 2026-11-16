@@ -21,6 +21,18 @@ add() {
   shift
   run "$home/none" ${envs[@]+"${envs[@]}"} -- sbx-instance add "$@"
 }
+# add_typed [VAR=value]... -- <argument of add>...: runs the wizard on a terminal. The person types Enter one time,
+# at the question for a folder.
+add_typed() {
+  local envs=()
+  while [ "$1" != -- ]; do
+    envs+=("$1")
+    shift
+  done
+  shift
+  run_typed "$home/none" "
+" ${envs[@]+"${envs[@]}"} -- sbx-instance add "$@"
+}
 no_list() { [ ! -e "$list" ]; }
 # stopped <status>: the wizard stopped with this status before it called sbx or changed the list.
 stopped() { [ "$rc" -eq "$1" ] && no_calls && no_list; }
@@ -30,7 +42,7 @@ all=(--policy deny-all --settings-from none --yes)
 echo "== a new instance"
 setup
 signed_out alpha
-add -- alpha "${all[@]}"
+add_typed -- alpha "${all[@]}"
 expect "a new instance: status 0" rc_is 0
 expect "a new instance: the name is on the list" list_is alpha
 expect "a new instance: the sign-in, then the policy, each in the instance" calls_are \
@@ -56,7 +68,7 @@ expect "a second run: the policy of the first run stays" [ "$(cat "$state/alpha.
 echo "== the instance default"
 setup
 signed_out default
-add -- default "${all[@]}"
+add_typed -- default "${all[@]}"
 expect "default: the same steps with no --app-name" calls_are \
   "sbx <--no-input> <ls>" \
   "sbx <login>" \
@@ -97,11 +109,21 @@ expect "no real sbx: status 127, the list is unchanged" [ "$rc" -eq 127 ] && exp
 echo "== the sign-in fails"
 setup
 signed_out alpha
-add STUB_LOGIN_FAILS=1 -- alpha "${all[@]}"
+add_typed STUB_LOGIN_FAILS=1 -- alpha "${all[@]}"
 expect "a failed sign-in: status 1" rc_is 1
 expect "a failed sign-in: the command to run by hand" said "sbx-instance run alpha -- login"
 expect "a failed sign-in: no policy" not_called "<policy>"
 expect "a failed sign-in: the name stays on the list" list_is alpha
+
+echo "== no terminal for the sign-in"
+setup
+signed_out alpha
+add -- alpha "${all[@]}"
+expect "no terminal, not signed in: status 1" rc_is 1
+expect "no terminal, not signed in: no sbx login" not_called "<login>"
+expect "no terminal, not signed in: the command to run by hand" said "sbx-instance run alpha -- login"
+expect "no terminal, not signed in: no policy" not_called "<policy>"
+expect "no terminal, not signed in: the name stays on the list" list_is alpha
 
 echo "== the policy fails"
 setup
@@ -147,8 +169,29 @@ expect "settings: the summary lists the keys of the source" said "kit.allowedSou
 expect "settings: the source instance is not changed" not_called "<beta> <--no-input> <settings> <set>"
 settings
 add "STUB_RESTART=some.text" -- alpha --policy deny-all --settings-from beta --yes
-expect "settings: a restart of the daemon when sbx asks for one" called \
+expect "settings: a restart of the daemon of a new instance when sbx asks for one" called \
   "sbx <--app-name> <alpha> <--no-input> <daemon> <restart>"
+# An instance that was on the list before the run can have sandboxes in use: the wizard does not restart its daemon.
+settings
+a_list beta alpha
+add "STUB_RESTART=some.text" -- alpha --policy deny-all --settings-from beta --yes
+expect "settings, an instance on the list already: status 0" rc_is 0
+expect "settings, an instance on the list already: the setting is set" called "<set> <some.text> <a b>"
+expect "settings, an instance on the list already: no restart of its daemon" not_called "<daemon> <restart>"
+expect "settings, an instance on the list already: the command for the restart" said \
+  "sbx-instance run alpha -- daemon restart"
+settings
+cp "$state/alpha.settings.json" "$state/default.settings.json"
+add "STUB_RESTART=some.text" -- default --policy deny-all --settings-from beta --yes
+expect "settings, the instance default: no restart of its daemon" not_called "<daemon> <restart>"
+expect "settings, the instance default: the command for the restart" said "sbx-instance run default -- daemon restart"
+settings
+run_typed "$home/none" "
+n
+" -- sbx-instance add alpha --policy deny-all --settings-from beta
+expect "settings: the summary says that the daemon can restart" said "restart"
+expect "settings: the summary came, and the no ended the run" said "Go on?"
+expect "settings: no call in the new instance before the yes" not_called "<alpha>"
 settings
 add -- alpha "${all[@]}"
 expect "settings from none: no settings call" not_called "<settings>"
@@ -220,13 +263,19 @@ expect "Enter takes the proposal deny-all" called "sbx <--app-name> <alpha> <--n
 expect "Enter takes the proposal default as the source of the settings" called "sbx <--no-input> <settings> <ls> <--json>"
 expect "Enter at the folder: no marker file is written" [ ! -e "$home/none/.sbx-instance" ]
 setup
-run_typed "$home/none" "n
+run_typed "$home/none" "
+n
 " -- sbx-instance add alpha --policy deny-all --settings-from none
+expect "a no at the summary: the question came" said "Go on?"
+expect "a no at the summary: the answer was not the end of the input" not_said "no answer"
+expect "a no at the summary: status 1" rc_is 1
 expect "a no at the summary: no sbx call" no_calls
 expect "a no at the summary: no list" no_list
 expect "a no at the summary: it says that nothing is changed" said "nothing is changed"
 setup
-run_typed "$home/none" "" -- sbx-instance add alpha --policy deny-all --settings-from none
+run_typed "$home/none" "
+" -- sbx-instance add alpha --policy deny-all --settings-from none
+expect "the end of the input at the summary: the question came" said "Go on?"
 expect "the end of the input at the summary: no sbx call" no_calls
 expect "the end of the input at the summary: no list" no_list
 

@@ -101,5 +101,11 @@ expect "a daemon that ran is not stopped" not_called "<beta> <--no-input> <daemo
 setup alpha
 check STUB_STOPPED=alpha STUB_SOCKET_DIR=sandboxes
 expect "a socket path with no name: nothing is stopped" not_called "<stop>"
+setup alpha
+check STUB_STATUS_MORE=1
+expect "a running daemon with a second Status line is not stopped" not_called "<stop>"
+check STUB_STOPPED=alpha STUB_STATUS_MORE=1
+expect "a stopped daemon with a second Status line is stopped again" called \
+  "sbx <--app-name> <alpha> <--no-input> <daemon> <stop>"
 
 finish

@@ -42,7 +42,15 @@ in_instance() {
 }
 
 cmd_which() {
+  local first
   [ $# -eq 0 ] || usage
+  if ! si_wrapper_first; then
+    first=$(type -P sbx) || first=none
+    si_refuse "the first sbx in PATH is not the wrapper: it is $first." \
+      "A plain sbx uses no instance of the list then, so there is no name to print." \
+      "Put the folder with the link to $SI_ROOT/bin/sbx before it in PATH. To test the setup: sbx-instance check"
+    exit 64
+  fi
   si_select || exit 64
   echo "$SI_NAME"
   echo "from the marker file $SI_SOURCE" >&2

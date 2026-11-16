@@ -18,6 +18,8 @@ expect "the link sbx points into the repo" link_is "$ibin/sbx" "$root/bin/sbx"
 expect "the link sbx-instance points into the repo" link_is "$ibin/sbx-instance" "$root/bin/sbx-instance"
 expect "the install runs the check" said "PASS the wrapper is the first sbx in PATH"
 expect "the install says what a plain sbx does from now on" said "refuses"
+expect "the install says that an open shell can still call the real sbx" said "hash -r"
+expect "the install names the command for zsh too" said "rehash"
 a_list alpha
 echo deny-all >"$state/alpha.policy"
 a_marker "$home/p" alpha

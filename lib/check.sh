@@ -46,7 +46,7 @@ check_instance() {
     check_fail "$name: signed in to Docker (sbx ls fails in it). Run: sbx-instance run $name -- login"
     echo "SKIP $name: the network policy, as the instance is not signed in"
   fi
-  if grep -Eq '^ *Status: +stopped' <<<"$status"; then
+  if si_daemon_stopped "$status"; then
     in_instance "$name" --no-input daemon stop >/dev/null 2>&1 || true
   fi
 }
@@ -55,7 +55,7 @@ cmd_check() {
   local first real name names
   [ $# -eq 0 ] || usage
   first=$(type -P sbx) || first=""
-  if [ -n "$first" ] && [ "$(si_resolve "$first")" = "$SI_ROOT/bin/sbx" ]; then
+  if si_wrapper_first; then
     check_pass "the wrapper is the first sbx in PATH ($first)"
   else
     check_fail "the wrapper is the first sbx in PATH: the first one is ${first:-none}." \

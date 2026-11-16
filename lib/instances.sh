@@ -178,6 +178,21 @@ si_refuse_hidden() {
     "sbx exec <sandbox> -- <command> --app-name x"
 }
 
+# si_wrapper_first: true when the first sbx in PATH is this wrapper. If it is not, a plain sbx uses no instance.
+si_wrapper_first() {
+  local first
+  first=$(type -P sbx) || return 1
+  [ "$(si_resolve "$first")" = "$SI_ROOT/bin/sbx" ]
+}
+
+# si_daemon_stopped <answer of "sbx daemon status">: true when the daemon does not run. Only the first Status line
+# counts: a later line can be the state of a part of the daemon.
+si_daemon_stopped() {
+  local value
+  value=$(sed -n -e '/^ *Status:/{' -e 's/^ *Status: *//p' -e 'q' -e '}' <<<"$1")
+  [ "$(si_trim "$value")" = stopped ]
+}
+
 # si_refuse_unlisted <name>: prints the message for a name that is not on the list.
 si_refuse_unlisted() {
   si_refuse "the instance '$1' is not on the list $(si_list_file). Nothing ran." \
