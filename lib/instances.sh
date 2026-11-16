@@ -133,3 +133,38 @@ si_run() {
   [ "$name" != default ] || exec "$real" "$@"
   exec "$real" --app-name "$name" "$@"
 }
+
+# si_refuse <line>...: prints the message of a refusal.
+si_refuse() {
+  printf 'sbx-instances: %s\n' "$1" >&2
+  shift
+  [ $# -eq 0 ] || printf '  %s\n' "$@" >&2
+}
+
+# si_select: finds the instance of the working folder. Sets SI_NAME and SI_SOURCE (the marker file). When no
+# instance is selected, it prints the message of the refusal and returns 64. Call it in this shell, not in $(...).
+si_select() {
+  local here
+  local ways=("Nothing ran. To select an instance:"
+    "- put its name into a $SI_MARKER file in this folder or in a folder above it, or"
+    "- run one command in a named instance: sbx-instance run <name> -- <sbx arguments>, or"
+    "- set up an instance and its folders: sbx-instance add")
+  SI_NAME=""
+  SI_SOURCE=""
+  here=$(pwd -P 2>/dev/null) || here="(a folder that does not exist any more)"
+  if ! SI_SOURCE=$(si_marker); then
+    si_refuse "no instance for the folder $here: no $SI_MARKER file in it or above it, up to the home folder." \
+      "${ways[@]}"
+    return 64
+  fi
+  if ! SI_NAME=$(si_marker_name "$SI_SOURCE") || ! si_valid "$SI_NAME"; then
+    si_refuse "the marker file $SI_SOURCE holds no instance name: its first line must be one name." "${ways[@]}"
+    return 64
+  fi
+  if ! si_listed "$SI_NAME"; then
+    si_refuse "the marker file $SI_SOURCE names the instance '$SI_NAME'." \
+      "The list $(si_list_file) does not hold this name." \
+      "${ways[@]}"
+    return 64
+  fi
+}

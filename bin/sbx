@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# The wrapper sbx: runs the real sbx in the instance that the nearest .sbx-instance file names, and refuses with
+# none. The working folder is the only input of the selection. A link to this file stands before the real sbx in PATH.
+set -euo pipefail
+
+self=${BASH_SOURCE[0]}
+while [ -L "$self" ]; do
+  dir=$(cd -P "$(dirname "$self")" && pwd)
+  self=$(readlink "$self")
+  case "$self" in
+    /*) ;;
+    *) self=$dir/$self ;;
+  esac
+done
+SI_ROOT=$(cd -P "$(dirname "$self")/.." && pwd)
+# shellcheck source=lib/instances.sh
+. "$SI_ROOT/lib/instances.sh"
+
+if si_hidden_arg "$@"; then
+  si_refuse "the argument --app-name is not allowed here: the working folder selects the instance. Nothing ran." \
+    "For one command in a named instance: sbx-instance run <name> -- <sbx arguments>" \
+    "For a command in a sandbox that has an argument of this name, put -- before the command:" \
+    "sbx exec <sandbox> -- <command> --app-name x"
+  exit 64
+fi
+
+# These commands need no instance.
+case "${1:-}" in
+  version | help | --help | -h | completion | __complete*) si_run default "$@" ;;
+esac
+
+si_select || exit 64
+si_run "$SI_NAME" "$@"

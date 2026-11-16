@@ -11,6 +11,8 @@ passed=0
 fails=0
 count=0
 rc=0
+# The file that a command of run gets as its stdin.
+input=/dev/null
 cleanup() {
   chmod -R u+rwx "$tmp" 2>/dev/null || true
   rm -rf "$tmp"
@@ -52,7 +54,8 @@ EOF
 chmod +x "$real/sbx"
 
 # run <folder> [VAR=value | unset:VAR]... -- <command> [argument...]: runs the command in the folder, with the test
-# environment only. Sets rc; stdout goes to $out, stderr to $err, the calls of the stub to $calls. stdin is empty.
+# environment only. Sets rc; stdout goes to $out, stderr to $err, the calls of the stub to $calls.
+# stdin is the file $input.
 run() {
   local dir=$1 item name
   local envs=("HOME=$home" "XDG_CONFIG_HOME=$home/.config" "PATH=$path" "STUB_LOG=$calls" "STUB_STATE=$state")
@@ -75,7 +78,7 @@ run() {
   shift
   : >"$calls"
   rc=0
-  (cd "$dir" && exec env -i "${envs[@]}" "$@") >"$out" 2>"$err" </dev/null || rc=$?
+  (cd "$dir" && exec env -i "${envs[@]}" "$@") >"$out" 2>"$err" <"$input" || rc=$?
 }
 
 # expect <title> <command> [argument...]: one assertion.
@@ -92,6 +95,7 @@ expect() {
 }
 
 called() { grep -qF -- "$1" "$calls"; }
+not() { ! "$@"; }
 not_called() { ! called "$1"; }
 # calls_are <line>...: the stub got exactly these calls, in this order.
 calls_are() {
