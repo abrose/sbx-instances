@@ -49,7 +49,25 @@ cat >"$real/sbx" <<'EOF'
 } >>"$STUB_LOG"
 [ -z "${STUB_ENV:-}" ] || env >"$STUB_ENV"
 [ -z "${STUB_STDIN:-}" ] || cat >"$STUB_STDIN"
-exit "${STUB_EXIT:-0}"
+[ "${STUB_EXIT:-0}" -eq 0 ] || exit "$STUB_EXIT"
+# The stub answers some commands as sbx does. $name is the instance of the call.
+name=default
+if [ "${1:-}" = --app-name ]; then
+  name=$2
+  shift 2
+fi
+case "${1:-} ${2:-}" in
+  "daemon status")
+    # STUB_SOCKET_DIR is the folder in the socket path; without it, the folder holds the name as sbx does it.
+    dir=sandboxes-$name
+    [ "$name" != default ] || dir=sandboxes
+    dir=${STUB_SOCKET_DIR:-$dir}
+    echo "  Status:  ● running"
+    echo "  Socket:  /stub/Application Support/$dir/sandboxd/sandboxd.sock"
+    echo "  Logs:    /stub/Application Support/$dir/sandboxd/daemon.log"
+    ;;
+esac
+exit 0
 EOF
 chmod +x "$real/sbx"
 
@@ -107,6 +125,7 @@ said() { grep -qF -- "$1" "$out" "$err"; }
 not_said() { ! said "$1"; }
 rc_is() { [ "$rc" -eq "$1" ]; }
 out_is() { [ "$(cat "$out")" = "$1" ]; }
+no_calls() { [ ! -s "$calls" ]; }
 no_out() { [ ! -s "$out" ]; }
 
 # fresh: a home folder with no list and no marker file.

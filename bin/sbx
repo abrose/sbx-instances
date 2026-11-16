@@ -17,10 +17,7 @@ SI_ROOT=$(cd -P "$(dirname "$self")/.." && pwd)
 . "$SI_ROOT/lib/instances.sh"
 
 if si_hidden_arg "$@"; then
-  si_refuse "the argument --app-name is not allowed here: the working folder selects the instance. Nothing ran." \
-    "For one command in a named instance: sbx-instance run <name> -- <sbx arguments>" \
-    "For a command in a sandbox that has an argument of this name, put -- before the command:" \
-    "sbx exec <sandbox> -- <command> --app-name x"
+  si_refuse_hidden
   exit 64
 fi
 

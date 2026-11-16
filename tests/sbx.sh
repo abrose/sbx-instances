@@ -4,7 +4,7 @@ set -euo pipefail
 # shellcheck source=tests/helpers.sh
 . "$(dirname "$0")/helpers.sh"
 
-refused() { [ "$rc" -eq 64 ] && calls_are && no_out; }
+refused() { [ "$rc" -eq 64 ] && no_calls && no_out; }
 
 # setup: the list holds alpha and beta; the folder p has a marker file for alpha; the folder none has none.
 setup() {

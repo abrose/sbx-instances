@@ -168,3 +168,19 @@ si_select() {
     return 64
   fi
 }
+
+# si_refuse_hidden: prints the message for a call that holds the hidden argument of sbx.
+si_refuse_hidden() {
+  si_refuse "the argument --app-name is not allowed here: the folder or sbx-instance run names the instance." \
+    "Nothing ran." \
+    "For one command in a named instance: sbx-instance run <name> -- <sbx arguments>" \
+    "For a command in a sandbox that has an argument of this name, put -- before the command:" \
+    "sbx exec <sandbox> -- <command> --app-name x"
+}
+
+# si_refuse_unlisted <name>: prints the message for a name that is not on the list.
+si_refuse_unlisted() {
+  si_refuse "the instance '$1' is not on the list $(si_list_file). Nothing ran." \
+    "The names on the list: sbx-instance list" \
+    "To set up an instance: sbx-instance add"
+}

@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# The tool sbx-instance: the list of the sbx instances, one command in a named instance, and the setup of an instance.
+# It calls the real sbx itself, never the wrapper.
+set -euo pipefail
+
+self=${BASH_SOURCE[0]}
+while [ -L "$self" ]; do
+  dir=$(cd -P "$(dirname "$self")" && pwd)
+  self=$(readlink "$self")
+  case "$self" in
+    /*) ;;
+    *) self=$dir/$self ;;
+  esac
+done
+SI_ROOT=$(cd -P "$(dirname "$self")/.." && pwd)
+# shellcheck source=lib/instances.sh
+. "$SI_ROOT/lib/instances.sh"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: sbx-instance <command>
+  list                           print the names on the list
+  which                          print the instance that a plain sbx uses in this folder
+  run <name> -- <sbx arguments>  run sbx in a named instance, from any folder
+  remove <name>                  take a name off the list; nothing else is deleted
+EOF
+  exit 2
+}
+
+# in_instance <name> [argument...]: runs the real sbx in the instance and comes back with its status.
+in_instance() {
+  local name=$1 real
+  shift
+  real=$(si_real_sbx) || return 127
+  if [ "$name" = default ]; then
+    "$real" "$@"
+  else
+    "$real" --app-name "$name" "$@"
+  fi
+}
+
+cmd_which() {
+  [ $# -eq 0 ] || usage
+  si_select || exit 64
+  echo "$SI_NAME"
+  echo "from the marker file $SI_SOURCE" >&2
+}
+
+cmd_run() {
+  local name
+  [ $# -ge 2 ] && [ "$2" = -- ] && [ "$1" != -- ] || usage
+  name=$1
+  shift 2
+  if ! si_valid "$name" || ! si_listed "$name"; then
+    si_refuse_unlisted "$name"
+    exit 64
+  fi
+  if si_hidden_arg "$@"; then
+    si_refuse_hidden
+    exit 64
+  fi
+  si_run "$name" "$@"
+}
+
+cmd_remove() {
+  local name file line paths
+  [ $# -eq 1 ] || usage
+  name=$1
+  if ! si_listed "$name"; then
+    si_refuse_unlisted "$name"
+    exit 64
+  fi
+  file=$(si_list_file)
+  paths=$(in_instance "$name" daemon status 2>/dev/null | grep -E '^ *(Socket|Logs):') || paths=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ "$(si_trim "$line")" = "$name" ] || printf '%s\n' "$line"
+  done <"$file" >"$file.new"
+  mv "$file.new" "$file"
+  echo "removed '$name' from the list $file. Nothing else is deleted. These stay:"
+  echo "- the data of the instance (sandboxes, secrets, templates, settings) in the folders of sbx"
+  [ -z "$paths" ] || printf '%s\n' "$paths"
+  echo "- each $SI_MARKER file that names '$name': a plain sbx below such a file refuses from now on"
+}
+
+[ $# -ge 1 ] || usage
+command=$1
+shift
+case "$command" in
+  list)
+    [ $# -eq 0 ] || usage
+    si_names
+    ;;
+  which) cmd_which "$@" ;;
+  run) cmd_run "$@" ;;
+  remove) cmd_remove "$@" ;;
+  *) usage ;;
+esac
