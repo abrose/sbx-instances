@@ -87,6 +87,9 @@ For a command in a sandbox that has an argument with the name `--app-name`, put 
 sbx exec <sandbox> -- <command> --app-name x
 ```
 
+Proved with sbx v0.53.0 in a named instance: the command in the sandbox gets `--app-name x` unchanged, as it gets
+an empty argument, an argument with a space, and `*`. With no `--` before the command, the wrapper refuses.
+
 ## The tool `sbx-instance`
 
 | Command | What it does |
