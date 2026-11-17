@@ -167,6 +167,14 @@ starts with `default-`, which each instance with a policy has.
   the list. Keep your marker files above the workspaces, and look at `sbx-instance which` when in doubt.
 - **Shell completion** asks the real `sbx` with no instance. It completes the sandbox names of the instance of sbx
   itself.
+- **A host command of a project file selects its own instance.** sbx runs a `lifecycle` host command in the folder
+  of the project file, with a `PATH` in which the wrapper is found (proved with sbx v0.53.0). So an `sbx` call in
+  a host command uses the instance of the folder of the project file. The sandbox itself is in the instance of
+  the folder where you ran `sbx env create`. Run `sbx env create` in the folder of the project file, or keep both
+  folders below one marker file. Else the host command talks to another instance than the one with the sandbox.
+- **A shell that was open at the install** can call the real `sbx` until `rehash` (zsh) or `hash -r` (bash). Such
+  a call runs in the instance of sbx itself, with no message, also in a folder with a marker file. `type sbx`
+  shows which one a shell calls: it must print the link of the wrapper.
 
 ## Tests
 
