@@ -60,7 +60,7 @@ add_value() {
 
 cmd_add() {
   local name="" policy="" source="" yes=0 item dir file found above answer out key value restart=0
-  local folders=() dirs=() notes=() overrides="[]" keys="" target may_restart=1
+  local folders=() dirs=() notes=() overrides="[]" keys="" target may_restart=1 question other
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -120,14 +120,22 @@ cmd_add() {
   fi
 
   if [ ${#folders[@]} -eq 0 ] && [ -t 0 ]; then
+    question="A folder that selects the instance (Enter: no folder)"
     while true; do
-      item=$(add_ask "A folder that selects the instance (Enter: no more)" "")
+      item=$(add_ask "$question" "")
       [ -n "$item" ] || break
       folders+=("$item")
+      question="One more folder that selects the instance (Enter: no more)"
     done
   fi
   for item in ${folders[@]+"${folders[@]}"}; do
     dir=$(add_folder "$item")
+    for other in ${dirs[@]+"${dirs[@]}"}; do
+      if [ "$other" = "$dir" ]; then
+        echo "the folder $dir is given two times: it counts one time" >&2
+        continue 2
+      fi
+    done
     file=$dir/$SI_MARKER
     if [ -e "$file" ] || [ -L "$file" ]; then
       found=$(si_marker_name "$file") || found=""

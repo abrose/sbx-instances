@@ -279,4 +279,25 @@ expect "the end of the input at the summary: the question came" said "Go on?"
 expect "the end of the input at the summary: no sbx call" no_calls
 expect "the end of the input at the summary: no list" no_list
 
+echo "== the folder question"
+# once <text>: the text is in one line of the output only.
+once() { [ "$(grep -cF -- "$1" "$out")" -eq 1 ]; }
+setup
+mkdir -p "$home/t1"
+run_typed "$home/none" "$home/t1
+$home/t1
+
+y
+" -- sbx-instance add alpha --policy deny-all --settings-from none
+expect "a second folder: the question says that it asks for one more" said "One more folder"
+expect "a folder that is given two times: the wizard says so" said "is given two times"
+expect "a folder that is given two times: one marker file in the summary" once "$home/t1/.sbx-instance (new)"
+expect "a folder that is given two times: the marker file is written" marker_is "$home/t1" alpha
+expect "a folder that is given two times: status 0" rc_is 0
+setup
+mkdir -p "$home/t1"
+add -- alpha "${all[@]}" --folder "$home/t1" --folder "$home/t1/."
+expect "--folder two times for one folder: one marker file in the summary" once "$home/t1/.sbx-instance (new)"
+expect "--folder two times for one folder: status 0" rc_is 0
+
 finish
