@@ -105,7 +105,7 @@ The list is the file `sbx-instances/instances` below `~/.config` (or below `XDG_
 in each line. A line that starts with `#` is a comment. The list file can be a link, for example into a dotfiles
 repo: `remove` writes through the link.
 
-Let the wizard add the names. Each sbx call with a name creates a small folder of that instance (about 4 KB),
+Let the wizard add the names. Each sbx call with a name creates two small folders of that instance (about 52 KB),
 also `sbx daemon status`. So a typing error in a list that you edit by hand creates an instance at the next check
 or build. The check names the typing error in its `FAIL` line, and the build of sbx-stack-base loads no image into
 an instance that is not signed in. `remove` never passes a name that is no instance name to sbx.
