@@ -22,6 +22,7 @@ expect "the install says that an open shell can still call the real sbx" said "h
 expect "the install names the command for zsh too" said "rehash"
 a_list alpha
 echo deny-all >"$state/alpha.policy"
+echo alpha >"$state/alpha.label"
 a_marker "$home/p" alpha
 run "$home/p" "PATH=$ipath" -- sbx ls
 expect "the installed wrapper selects the instance" calls_are "sbx <--app-name> <alpha> <ls>"

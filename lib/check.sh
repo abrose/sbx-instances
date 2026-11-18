@@ -11,7 +11,7 @@ check_fail() {
 
 # check_instance <name>: the tests of one instance on the list.
 check_instance() {
-  local name=$1 status socket rows
+  local name=$1 status socket rows label
   if ! si_valid "$name"; then
     check_fail "$name: is an instance name (small letters, digits and dashes). Correct the list $(si_list_file)"
     return 0
@@ -42,9 +42,22 @@ check_instance() {
     else
       check_fail "$name: has a network policy. Run: sbx-instance add $name"
     fi
+    # The check asks for the row of the label only, so it prints no other row of the secret store.
+    label=$(in_instance "$name" --no-input secret ls -g --env-name "$SI_LABEL_VAR" --json 2>/dev/null |
+      jq -r --arg var "$SI_LABEL_VAR" \
+        '[.custom_secrets[]? | select(.env == $var and .scope == "global") | .placeholder] | join(" ")' \
+        2>/dev/null) || label=""
+    if [ "$label" = "$name" ]; then
+      check_pass "$name: labels its sandboxes ($SI_LABEL_VAR=$name)"
+    elif [ -n "$label" ]; then
+      check_fail "$name: labels its sandboxes. Run: sbx-instance add $name (the label says '$label')"
+    else
+      check_fail "$name: labels its sandboxes. Run: sbx-instance add $name"
+    fi
   else
     check_fail "$name: signed in to Docker (sbx ls fails in it). Run: sbx-instance run $name -- login"
     echo "SKIP $name: the network policy, as the instance is not signed in"
+    echo "SKIP $name: the label, as the instance is not signed in"
   fi
   if si_daemon_stopped "$status"; then
     in_instance "$name" --no-input daemon stop >/dev/null 2>&1 || true

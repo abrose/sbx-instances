@@ -4,7 +4,7 @@ set -euo pipefail
 # shellcheck source=tests/helpers.sh
 . "$(dirname "$0")/helpers.sh"
 
-# setup <name>...: these names are on the list; each instance is signed in and has a network policy.
+# setup <name>...: these names are on the list; each instance is signed in, and has a network policy and its label.
 setup() {
   local name
   fresh
@@ -13,8 +13,10 @@ setup() {
   a_list "$@"
   for name in "$@"; do
     echo deny-all >"$state/$name.policy"
+    echo "$name" >"$state/$name.label"
   done
 }
+label_ls="<--no-input> <secret> <ls> <-g> <--env-name> <SBX_INSTANCE> <--json>"
 # check [VAR=value]...: runs the check.
 check() { run "$home" "$@" -- sbx-instance check; }
 lines() { [ "$(grep -c "^$1 " "$out")" -eq "$2" ]; }
@@ -26,14 +28,16 @@ setup alpha beta
 check
 expect "a good setup: status 0" rc_is 0
 expect "a good setup: no FAIL line" lines FAIL 0
-expect "a good setup: a line for each test" lines PASS 8
-expect "a good setup: three questions for each instance, and no change" calls_are \
+expect "a good setup: a line for each test" lines PASS 10
+expect "a good setup: four questions for each instance, and no change" calls_are \
   "sbx <--app-name> <alpha> <--no-input> <daemon> <status>" \
   "sbx <--app-name> <alpha> <--no-input> <ls>" \
   "sbx <--app-name> <alpha> <--no-input> <policy> <ls>" \
+  "sbx <--app-name> <alpha> $label_ls" \
   "sbx <--app-name> <beta> <--no-input> <daemon> <status>" \
   "sbx <--app-name> <beta> <--no-input> <ls>" \
-  "sbx <--app-name> <beta> <--no-input> <policy> <ls>"
+  "sbx <--app-name> <beta> <--no-input> <policy> <ls>" \
+  "sbx <--app-name> <beta> $label_ls"
 expect "a good setup: the list is unchanged" list_is "alpha
 beta"
 run "$home" -- sbx-instance check more
@@ -43,11 +47,13 @@ echo "== the instance default"
 setup default
 check
 expect "default: status 0" rc_is 0
-expect "default: no socket test, so two lines for the instance" lines PASS 4
+expect "default: no socket test, so three lines for the instance" lines PASS 5
 expect "default: the questions go to sbx with no --app-name" calls_are \
   "sbx <--no-input> <daemon> <status>" \
   "sbx <--no-input> <ls>" \
-  "sbx <--no-input> <policy> <ls>"
+  "sbx <--no-input> <policy> <ls>" \
+  "sbx $label_ls"
+expect "default: the label is tested too" said "PASS default: labels its sandboxes (SBX_INSTANCE=default)"
 
 echo "== an empty list"
 setup
@@ -91,6 +97,29 @@ rm "$state/beta.policy"
 check
 expect "an instance with no network policy: one FAIL" one_fail "beta: has a network policy"
 expect "an instance with no network policy: the check creates none" not_called "<init>"
+
+echo "== the label"
+setup alpha beta
+check
+expect "a label: PASS" said "PASS alpha: labels its sandboxes (SBX_INSTANCE=alpha)"
+expect "the check asks for the label row only" called "sbx <--app-name> <alpha> $label_ls"
+expect "the check sets no label" not_called "<set-custom>"
+setup alpha beta
+rm "$state/beta.label"
+check
+expect "no label: one FAIL" one_fail "beta: labels its sandboxes"
+expect "no label: the FAIL line names the repair" said "FAIL beta: labels its sandboxes. Run: sbx-instance add beta"
+expect "no label: the other instance passes" said "PASS alpha: labels its sandboxes (SBX_INSTANCE=alpha)"
+setup alpha beta
+echo alpha >"$state/beta.label"
+check
+expect "a label with another name: one FAIL" one_fail "beta: labels its sandboxes"
+expect "a label with another name: the line names what the label says" said "the label says 'alpha'"
+setup alpha beta
+: >"$state/alpha.signed-out"
+check
+expect "not signed in: the label is skipped" said "SKIP alpha: the label, as the instance is not signed in"
+expect "not signed in: no question for the label" not_called "<alpha> <--no-input> <secret>"
 
 echo "== the daemons stay as they were"
 setup alpha beta

@@ -3,6 +3,13 @@
 # real sbx. The caller sets SI_ROOT to the resolved root of the repo first. No function here changes a file.
 
 SI_MARKER=.sbx-instance
+# The label of an instance: a custom secret of sbx that is no secret. Its placeholder is the name of the instance,
+# so sbx sets SI_LABEL_VAR to the name in each new sandbox. SI_LABEL_HOST does not exist (.invalid is reserved),
+# so the proxy of sbx never has a request to put the value into.
+# shellcheck disable=SC2034  # lib/add.sh and lib/check.sh use these
+SI_LABEL_VAR=SBX_INSTANCE
+# shellcheck disable=SC2034
+SI_LABEL_HOST=sbx-instance.invalid
 
 # si_trim <text>: prints the text with no space, tab or line end around it.
 si_trim() {

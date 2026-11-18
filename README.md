@@ -121,11 +121,12 @@ Then it does these steps. It leaves a step that is done already, so a second run
 2. It runs `sbx login` in the instance when the instance is not signed in to Docker. You sign in in the terminal.
    With no terminal, the wizard runs no sign-in: it stops and prints the command.
 3. It sets the network policy when the instance has none.
-4. It copies each setting that the source instance changed and that differs. When sbx asks for a restart of the
+4. It sets the label of the instance (see "The label of an instance").
+5. It copies each setting that the source instance changed and that differs. When sbx asks for a restart of the
    daemon, the wizard restarts the daemon of a new instance. It does not restart the daemon of `default` or of
    an instance that was on the list before: such an instance can have sandboxes in use. It prints the command.
-5. It writes the marker files. It never changes a marker file that names another instance.
-6. It prints the steps that are left for you: load your template, create a sandbox, and run `/login` in Claude in
+6. It writes the marker files. It never changes a marker file that names another instance.
+7. It prints the steps that are left for you: load your template, create a sandbox, and run `/login` in Claude in
    that sandbox. One Claude login holds for all sandboxes of the instance.
 
 Each answer has an option, for a script:
@@ -145,11 +146,38 @@ With no terminal, each answer needs its option, and no `--folder` means no folde
 - For each named instance on the list: the socket path of its daemon holds its name. This proves that
   `--app-name` still separates the instances. If this test fails, do not use the named instances with that sbx.
 - Each instance on the list is signed in to Docker and has a network policy.
+- Each instance on the list labels its sandboxes. For this test the check asks sbx for one row of the secret
+  store, the row of the variable `SBX_INSTANCE`, and prints no row.
 
-The check changes nothing. A daemon that did not run before the check is stopped again.
+The check changes nothing. A daemon that did not run before the check is stopped again. The check needs `jq`.
 
 Not proved: what `sbx policy ls` prints for an instance with no network policy. The test looks for a row that
 starts with `default-`, which each instance with a policy has.
+
+## The label of an instance
+
+A sandbox does not know its instance: sbx gives the VM the name of the sandbox, and no trace of `--app-name`. So
+each instance labels its own sandboxes. In a new sandbox of a labeled instance, the variable `SBX_INSTANCE` holds
+the name of the instance. A status line or a shell prompt in the sandbox can show it.
+
+The wizard stores the label with a feature of sbx that has another purpose, a custom secret:
+
+```bash
+sbx secret set-custom --host sbx-instance.invalid --env SBX_INSTANCE --placeholder <name> --value <name>
+```
+
+sbx sets the variable of a custom secret to its placeholder in each new sandbox, and here the placeholder is the
+name of the instance. Nothing in it is a secret. The host does not exist (`.invalid` is a reserved name), so the
+proxy of sbx never has a request to put the value into.
+
+- **`sbx secret ls` shows one row for the label** in each instance, below "CUSTOM SECRETS".
+- **A sandbox that exists has no label.** sbx sets the variable when it creates a sandbox, not at a later start
+  (proved with sbx v0.53.0). The sandbox gets the label at its next create.
+- **`sbx secret rm --all` removes the label.** `sbx-instance check` then fails for that instance and names the
+  repair: `sbx-instance add <name>`. A second run of the wizard sets the label again and changes nothing else.
+- **An `env` value of the same name in a project file** is not proved: do not set `SBX_INSTANCE` there.
+- **`sbx secret set-custom` is experimental in sbx.** If Docker changes it, the label is gone and the check says
+  so. The instances still work.
 
 ## Limits
 

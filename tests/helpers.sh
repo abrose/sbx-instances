@@ -88,6 +88,28 @@ case "${1:-} ${2:-}" in
       echo "default-$(cat "$STUB_STATE/$name.policy")   local    all          network"
     echo "local-policy       local    all          filesystem read: 1 allow"
     ;;
+  "secret set-custom")
+    # STUB_LABEL_FAILS=1: sbx cannot store the custom secret. Else the placeholder goes to <name>.label.
+    if [ -n "${STUB_LABEL_FAILS:-}" ]; then
+      echo "error: daemon fault" >&2
+      exit 1
+    fi
+    while [ $# -gt 1 ]; do
+      [ "$1" != --placeholder ] || echo "$2" >"$STUB_STATE/$name.label"
+      shift
+    done
+    echo "Saved custom secret for target sbx-instance.invalid env SBX_INSTANCE ((global))"
+    ;;
+  "secret ls")
+    # The answer of "secret ls -g --env-name SBX_INSTANCE --json", as sbx v0.53.0 gives it.
+    if [ -e "$STUB_STATE/$name.label" ]; then
+      printf '{\n  "custom_secrets": [\n    {\n      "scope": "global",\n      "targets": [\n'
+      printf '        "sbx-instance.invalid"\n      ],\n      "env": "SBX_INSTANCE",\n'
+      printf '      "placeholder": "%s",\n      "secret": "*****"\n    }\n  ]\n}\n' "$(cat "$STUB_STATE/$name.label")"
+    else
+      printf '{\n  "custom_secrets": []\n}\n'
+    fi
+    ;;
   "settings ls")
     if [ -f "$STUB_STATE/$name.settings.json" ]; then
       cat "$STUB_STATE/$name.settings.json"
@@ -178,6 +200,17 @@ calls_are() {
   local want=""
   [ $# -eq 0 ] || want=$(printf '%s\n' "$@")
   [ "$(cat "$calls")" = "$want" ]
+}
+# in_order <a> <b>: the first call that holds <a> comes before the first call that holds <b>.
+in_order() {
+  local a b
+  a=$(grep -nF -- "$1" "$calls" | head -1 | cut -d: -f1) || true
+  b=$(grep -nF -- "$2" "$calls" | head -1 | cut -d: -f1) || true
+  [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]
+}
+# label_call <name>: the arguments of the call that sets the label of an instance.
+label_call() {
+  echo "<--no-input> <secret> <set-custom> <--host> <sbx-instance.invalid> <--env> <SBX_INSTANCE> <--placeholder> <$1> <--value> <$1>"
 }
 said() { grep -qF -- "$1" "$out" "$err"; }
 not_said() { ! said "$1"; }

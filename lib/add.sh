@@ -174,6 +174,7 @@ cmd_add() {
   fi
   echo "  Docker sign-in:  when the instance is not signed in, sbx login runs in this terminal"
   echo "  network policy:  $policy, when the instance has none"
+  echo "  label:           $SI_LABEL_VAR=$name in each new sandbox of the instance (a custom secret that is no secret)"
   if [ "$source" = none ]; then
     echo "  settings:        no copy"
   else
@@ -246,7 +247,13 @@ cmd_add() {
     esac
   fi
 
-  # 4. The settings.
+  # 4. The label. sbx creates or updates the custom secret, so a later run gives the same result.
+  out=$(in_instance "$name" --no-input secret set-custom --host "$SI_LABEL_HOST" --env "$SI_LABEL_VAR" \
+    --placeholder "$name" --value "$name" 2>&1) ||
+    add_stop 1 "cannot set the label of the instance '$name':" "$out"
+  echo "label: $SI_LABEL_VAR=$name in each new sandbox of the instance"
+
+  # 5. The settings.
   if [ "$source" != none ]; then
     target=$(in_instance "$name" --no-input settings ls --json 2>/dev/null |
       jq -c '[.[] | {key, value}]' 2>/dev/null) ||
@@ -273,7 +280,7 @@ cmd_add() {
     fi
   fi
 
-  # 5. The marker files.
+  # 6. The marker files.
   for dir in ${dirs[@]+"${dirs[@]}"}; do
     file=$dir/$SI_MARKER
     if [ -e "$file" ]; then
@@ -289,7 +296,7 @@ cmd_add() {
     echo "  sbx in the folder of the file, and in each folder below it, runs in the instance '$name'."
   fi
 
-  # 6. What is left for the person.
+  # 7. What is left for the person.
   cat <<EOF
 
 The instance '$name' is set up. What is left for you:

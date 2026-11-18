@@ -45,11 +45,12 @@ signed_out alpha
 add_typed -- alpha "${all[@]}"
 expect "a new instance: status 0" rc_is 0
 expect "a new instance: the name is on the list" list_is alpha
-expect "a new instance: the sign-in, then the policy, each in the instance" calls_are \
+expect "a new instance: the sign-in, the policy, then the label, each in the instance" calls_are \
   "sbx <--app-name> <alpha> <--no-input> <ls>" \
   "sbx <--app-name> <alpha> <login>" \
   "sbx <--app-name> <alpha> <--no-input> <ls>" \
-  "sbx <--app-name> <alpha> <--no-input> <policy> <init> <deny-all>"
+  "sbx <--app-name> <alpha> <--no-input> <policy> <init> <deny-all>" \
+  "sbx <--app-name> <alpha> $(label_call alpha)"
 expect "the steps that are left: the base image" said "build.sh --load"
 expect "the steps that are left: the first sandbox" said "sbx env create"
 expect "the steps that are left: the Claude login" said "/login"
@@ -73,8 +74,33 @@ expect "default: the same steps with no --app-name" calls_are \
   "sbx <--no-input> <ls>" \
   "sbx <login>" \
   "sbx <--no-input> <ls>" \
-  "sbx <--no-input> <policy> <init> <deny-all>"
+  "sbx <--no-input> <policy> <init> <deny-all>" \
+  "sbx $(label_call default)"
 expect "default: the name is on the list" list_is default
+
+echo "== the label"
+setup
+add -- two "${all[@]}"
+expect "the summary names the label" said "label:           SBX_INSTANCE=two in each new sandbox"
+expect "a yes: the wizard sets the label" called "sbx <--app-name> <two> $(label_call two)"
+expect "the label comes after the sign-in and the policy" in_order "<policy> <init>" "<secret> <set-custom>"
+expect "the output names the label" said "label: SBX_INSTANCE=two in each new sandbox of the instance"
+add -- two "${all[@]}"
+expect "a second run sets the label again" called "sbx <--app-name> <two> $(label_call two)"
+expect "a second run: status 0 with the label" rc_is 0
+setup
+add -- default "${all[@]}"
+expect "default: the label call has no --app-name" called "sbx $(label_call default)"
+setup
+signed_out two
+add -- two "${all[@]}"
+expect "not signed in and no terminal: no label call" not_called "<set-custom>"
+setup
+add STUB_LABEL_FAILS=1 -- two "${all[@]}"
+expect "set-custom fails: status 1" rc_is 1
+expect "set-custom fails: the message names the instance" said "cannot set the label of the instance 'two'"
+expect "set-custom fails: the message holds what sbx said" said "daemon fault"
+expect "set-custom fails: the name stays on the list" list_is two
 
 echo "== a typing error creates no instance"
 setup
@@ -270,6 +296,7 @@ expect "a no at the summary: the question came" said "Go on?"
 expect "a no at the summary: the answer was not the end of the input" not_said "no answer"
 expect "a no at the summary: status 1" rc_is 1
 expect "a no at the summary: no sbx call" no_calls
+expect "a no at the summary: no label call" not_called "<set-custom>"
 expect "a no at the summary: no list" no_list
 expect "a no at the summary: it says that nothing is changed" said "nothing is changed"
 setup
