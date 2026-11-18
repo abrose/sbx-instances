@@ -227,6 +227,20 @@ expect "settings from a name not on the list: status 2, no call" [ "$rc" -eq 2 ]
 add -- beta --policy deny-all --settings-from beta --yes
 expect "settings from the instance itself: status 2, no call" [ "$rc" -eq 2 ] && expect "and no call" no_calls
 settings
+a_list beta Beta
+add -- alpha --policy deny-all --settings-from Beta --yes
+expect "settings from a listed name that is no instance name: status 2" rc_is 2
+expect "settings from a listed name that is no instance name: no call" no_calls
+# A failed set must not hide that an earlier set needs a restart of the daemon.
+settings
+add "STUB_RESTART=kit.allowedSources" STUB_SET_FAILS=some.text -- alpha --policy deny-all --settings-from beta --yes
+expect "a failed set after a set that needs a restart: status 1" rc_is 1
+expect "a failed set after a set that needs a restart: the restart command" said \
+  "sbx-instance run alpha -- daemon restart"
+settings
+add STUB_SET_FAILS=some.text -- alpha --policy deny-all --settings-from beta --yes
+expect "a failed set with no restart before it: no restart command" not_said "daemon restart"
+settings
 echo "no json" >"$state/beta.settings.json"
 add -- alpha --policy deny-all --settings-from beta --yes
 expect "settings of the source cannot be read: status 1" rc_is 1

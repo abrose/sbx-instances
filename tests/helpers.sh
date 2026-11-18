@@ -65,6 +65,13 @@ case "${1:-} ${2:-}" in
       echo "error: not signed in to Docker" >&2
       exit 1
     fi
+    # "ls --json": one sandbox. STUB_RUNNING holds the instances where it runs; elsewhere it is stopped.
+    if [ "${2:-}" = --json ]; then
+      case " ${STUB_RUNNING:-} " in
+        *" $name "*) echo '[{"name":"box","status":"running"}]' ;;
+        *) echo '[{"name":"box","status":"stopped"}]' ;;
+      esac
+    fi
     ;;
   "login "*)
     # STUB_LOGIN_FAILS=1: the sign-in does not work.
@@ -118,6 +125,11 @@ case "${1:-} ${2:-}" in
     fi
     ;;
   "settings set")
+    # STUB_SET_FAILS is a key that sbx cannot set.
+    if [ "${STUB_SET_FAILS:-}" = "$3" ]; then
+      echo "error: daemon fault" >&2
+      exit 1
+    fi
     # STUB_RESTART holds the keys whose change needs a restart of the daemon.
     case " ${STUB_RESTART:-} " in
       *" $3 "*)

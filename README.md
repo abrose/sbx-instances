@@ -102,7 +102,13 @@ an empty argument, an argument with a space, and `*`. With no `--` before the co
 | `sbx-instance remove <name>` | Takes a name off the list. It deletes nothing else |
 
 The list is the file `sbx-instances/instances` below `~/.config` (or below `XDG_CONFIG_HOME`). It holds one name
-in each line. A line that starts with `#` is a comment.
+in each line. A line that starts with `#` is a comment. The list file can be a link, for example into a dotfiles
+repo: `remove` writes through the link.
+
+Let the wizard add the names. Each sbx call with a name creates a small folder of that instance (about 4 KB),
+also `sbx daemon status`. So a typing error in a list that you edit by hand creates an instance at the next check
+or build. The check names the typing error in its `FAIL` line, and the build of sbx-stack-base loads no image into
+an instance that is not signed in. `remove` never passes a name that is no instance name to sbx.
 
 ### The wizard
 
@@ -115,7 +121,8 @@ exits with status 1. The wizard needs `jq`.
    telemetry, and it allows a kit only from Docker Hub.
 4. The folders that select the instance.
 
-Then it does these steps. It leaves a step that is done already, so a second run repairs an instance:
+Then it does these steps. It leaves a step that is done already, so a second run repairs an instance. Only the
+label is set again in each run: sbx updates it in place, so the result is the same.
 
 1. It adds the name to the list.
 2. It runs `sbx login` in the instance when the instance is not signed in to Docker. You sign in in the terminal.
@@ -125,6 +132,7 @@ Then it does these steps. It leaves a step that is done already, so a second run
 5. It copies each setting that the source instance changed and that differs. When sbx asks for a restart of the
    daemon, the wizard restarts the daemon of a new instance. It does not restart the daemon of `default` or of
    an instance that was on the list before: such an instance can have sandboxes in use. It prints the command.
+   When a later setting fails, the wizard stops and prints the restart command for the settings it set before.
 6. It writes the marker files. It never changes a marker file that names another instance.
 7. It prints the steps that are left for you: load your template, create a sandbox, and run `/login` in Claude in
    that sandbox. One Claude login holds for all sandboxes of the instance.
@@ -142,14 +150,17 @@ With no terminal, each answer needs its option, and no `--folder` means no folde
 `sbx-instance check` prints one `PASS` or `FAIL` line for each test, and exits with status 1 after a `FAIL`:
 
 - The wrapper is the first `sbx` in `PATH`.
+- `jq` is in `PATH`. With no `jq`, the check skips the test of the label.
 - A real `sbx` is in `PATH`.
 - For each named instance on the list: the socket path of its daemon holds its name. This proves that
   `--app-name` still separates the instances. If this test fails, do not use the named instances with that sbx.
 - Each instance on the list is signed in to Docker and has a network policy.
 - Each instance on the list labels its sandboxes. For this test the check asks sbx for one row of the secret
-  store, the row of the variable `SBX_INSTANCE`, and prints no row.
+  store, the row of the variable `SBX_INSTANCE`. It prints no row of the store. It prints only the placeholder of
+  that row when the placeholder names another instance; the placeholder of the label is no secret.
 
-The check changes nothing. A daemon that did not run before the check is stopped again. The check needs `jq`.
+The check changes nothing. A daemon that did not run before the check is stopped again, unless a sandbox runs in
+it at the end of the check: then a `NOTE` line says that the daemon stays running.
 
 Not proved: what `sbx policy ls` prints for an instance with no network policy. The test looks for a row that
 starts with `default-`, which each instance with a policy has.

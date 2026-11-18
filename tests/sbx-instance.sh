@@ -130,5 +130,20 @@ expect "remove when sbx does not answer: status 0" rc_is 0
 a_list alpha
 run "$home/none" "PATH=$no_real_path" -- sbx-instance remove alpha
 expect "remove with no real sbx: the name still goes" list_is ""
+# A name on the list that is no instance name never reaches sbx: sbx would create an instance of that name.
+a_list alpha Alpha
+run "$home/none" -- sbx-instance remove Alpha
+expect "remove of a listed name that is no instance name: the name goes" list_is alpha
+expect "remove of a listed name that is no instance name: status 0" rc_is 0
+expect "remove of a listed name that is no instance name: no sbx call" no_calls
+# A list file that is a link (for example into a dotfiles repo) stays a link.
+a_list alpha beta
+mkdir -p "$home/dotfiles"
+mv "$list" "$home/dotfiles/instances"
+ln -s ../../dotfiles/instances "$list"
+run "$home/none" -- sbx-instance remove beta
+expect "remove through a link: the list file is still a link" [ -L "$list" ]
+expect "remove through a link: the file behind the link lost the name" \
+  [ "$(cat "$home/dotfiles/instances")" = alpha ]
 
 finish

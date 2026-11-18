@@ -60,7 +60,7 @@ add_value() {
 
 cmd_add() {
   local name="" policy="" source="" yes=0 item dir file found above answer out key value restart=0
-  local folders=() dirs=() notes=() overrides="[]" keys="" target may_restart=1 question other
+  local folders=() dirs=() notes=() lines=() overrides="[]" keys="" target may_restart=1 question other
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -113,7 +113,7 @@ cmd_add() {
     source=$(add_ask "Copy the changed sbx settings from which instance (a name on the list, or none)" "$item")
   fi
   if [ "$source" != none ]; then
-    if [ "$source" = "$name" ] || ! si_listed "$source"; then
+    if [ "$source" = "$name" ] || ! si_valid "$source" || ! si_listed "$source"; then
       add_stop 2 "--settings-from '$source': the source is another instance on the list, or none." \
         "Nothing is changed."
     fi
@@ -264,8 +264,13 @@ cmd_add() {
         echo "settings: $key is equal already"
         continue
       fi
-      out=$(in_instance "$name" --no-input settings set "$key" "$value" 2>&1) ||
-        add_stop 1 "sbx settings set $key fails in the instance '$name':" "$out"
+      if ! out=$(in_instance "$name" --no-input settings set "$key" "$value" 2>&1); then
+        lines=("sbx settings set $key fails in the instance '$name':" "$out")
+        # An earlier setting of this run waits for a restart: the next run finds it equal and says nothing.
+        [ "$restart" -eq 0 ] || lines+=("A setting of this run takes effect only after a restart of the daemon." \
+          "Run it when no sandbox is in use: sbx-instance run $name -- daemon restart")
+        add_stop 1 "${lines[@]}"
+      fi
       echo "settings: $key = $value"
       case "$out" in *"daemon restart"*) restart=1 ;; esac
     done

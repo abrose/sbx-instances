@@ -28,7 +28,7 @@ setup alpha beta
 check
 expect "a good setup: status 0" rc_is 0
 expect "a good setup: no FAIL line" lines FAIL 0
-expect "a good setup: a line for each test" lines PASS 10
+expect "a good setup: a line for each test" lines PASS 11
 expect "a good setup: four questions for each instance, and no change" calls_are \
   "sbx <--app-name> <alpha> <--no-input> <daemon> <status>" \
   "sbx <--app-name> <alpha> <--no-input> <ls>" \
@@ -47,7 +47,7 @@ echo "== the instance default"
 setup default
 check
 expect "default: status 0" rc_is 0
-expect "default: no socket test, so three lines for the instance" lines PASS 5
+expect "default: no socket test, so three lines for the instance" lines PASS 6
 expect "default: the questions go to sbx with no --app-name" calls_are \
   "sbx <--no-input> <daemon> <status>" \
   "sbx <--no-input> <ls>" \
@@ -76,6 +76,7 @@ echo "== the hidden argument does not separate the instances any more"
 setup alpha
 check STUB_SOCKET_DIR=sandboxes
 expect "a socket path with no name: one FAIL" one_fail "socket path"
+expect "a socket path with no name: the FAIL line has its advice" said "Do not use the named instances with this sbx"
 expect "a socket path with no name: no more question in this instance" calls_are \
   "sbx <--app-name> <alpha> <--no-input> <daemon> <status>"
 setup alpha
@@ -136,5 +137,35 @@ expect "a running daemon with a second Status line is not stopped" not_called "<
 check STUB_STOPPED=alpha STUB_STATUS_MORE=1
 expect "a stopped daemon with a second Status line is stopped again" called \
   "sbx <--app-name> <alpha> <--no-input> <daemon> <stop>"
+# A person can start a sandbox in the instance during the check: the stop must not end it.
+setup alpha
+check STUB_STOPPED=alpha
+expect "a daemon that was stopped: the check looks at the sandboxes just before the stop" \
+  in_order "<alpha> <--no-input> <ls> <--json>" "<alpha> <--no-input> <daemon> <stop>"
+setup alpha
+check STUB_STOPPED=alpha STUB_RUNNING=alpha
+expect "a sandbox that runs now: status 0" rc_is 0
+expect "a sandbox that runs now: the daemon is not stopped" not_called "<stop>"
+expect "a sandbox that runs now: a line says why the daemon runs on" said "NOTE alpha: the daemon stays running"
+
+echo "== a typing error in the list"
+setup alpha
+a_list alhpa
+: >"$state/alhpa.signed-out"
+check
+expect "a name that is not signed in: the FAIL line names a typing error and the list" \
+  said "a typing error in the list $list"
+
+echo "== no jq"
+setup alpha
+nojq=$tmp/nojq
+mkdir -p "$nojq"
+for tool in /usr/bin/*; do
+  [ "${tool##*/}" = jq ] || ln -s "$tool" "$nojq/${tool##*/}"
+done
+check "PATH=$wbin:$real:$shell:$nojq:/bin"
+expect "no jq: one FAIL" one_fail "jq is in PATH"
+expect "no jq: no advice that cannot help" not_said "Run: sbx-instance add alpha"
+expect "no jq: the label is skipped" said "SKIP alpha: the label, as jq is not in PATH"
 
 finish

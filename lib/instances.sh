@@ -200,6 +200,12 @@ si_daemon_stopped() {
   [ "$(si_trim "$value")" = stopped ]
 }
 
+# si_sandbox_runs <answer of "sbx ls --json">: true when a sandbox in the list is not stopped. An answer that is no
+# list (sbx failed, or no jq) counts as no sandbox that runs.
+si_sandbox_runs() {
+  [ "$(jq -r 'if type == "array" then any(.[]; .status != "stopped") else false end' <<<"$1" 2>/dev/null)" = true ]
+}
+
 # si_refuse_unlisted <name>: prints the message for a name that is not on the list.
 si_refuse_unlisted() {
   si_refuse "the instance '$1' is not on the list $(si_list_file). Nothing ran." \

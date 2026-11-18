@@ -80,8 +80,13 @@ cmd_remove() {
     si_refuse_unlisted "$name"
     exit 64
   fi
-  file=$(si_list_file)
-  paths=$(in_instance "$name" daemon status 2>/dev/null | grep -E '^ *(Socket|Logs):') || paths=""
+  # The new content goes to the file behind a link, so a list file that is a link stays one.
+  file=$(si_resolve "$(si_list_file)")
+  paths=""
+  # A name that is no instance name never reaches sbx: each sbx call creates the instance of its name.
+  if si_valid "$name"; then
+    paths=$(in_instance "$name" daemon status 2>/dev/null | grep -E '^ *(Socket|Logs):') || paths=""
+  fi
   while IFS= read -r line || [ -n "$line" ]; do
     [ "$(si_trim "$line")" = "$name" ] || printf '%s\n' "$line"
   done <"$file" >"$file.new"
