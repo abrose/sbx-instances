@@ -190,6 +190,50 @@ proxy of sbx never has a request to put the value into.
 - **`sbx secret set-custom` is experimental in sbx.** If Docker changes it, the label is gone and the check says
   so. The instances still work.
 
+## Several projects in one sandbox
+
+Project folders below one parent folder can share one sandbox. The sandbox mounts the parent folder, and each agent
+session starts in a project folder. Several sessions can run at the same time.
+
+1. Create the sandbox in the parent folder, one time:
+
+   ```bash
+   cd ~/work
+   sbx run -d claude --name claude-work
+   ```
+
+2. In each terminal, start Claude in a project folder:
+
+   ```bash
+   cd ~/work/project-a
+   sbx exec -it -w "$PWD" claude-work claude
+   ```
+
+sbx mounts the workspace at the same path as on the host, so `"$PWD"` is also the path in the sandbox. For one
+session in the terminal of `sbx run`, the help of sbx gives `sbx run --name claude-work -w project-a`: there `-w` is
+relative to the workspace and holds for that session only (not proved).
+
+Proved with sbx v0.54.0 in a named instance:
+
+- Two `claude -p` sessions ran at the same time in one sandbox. Each one answered with its own project folder.
+- `sbx exec -it` gives the session a terminal (`/dev/pts/0`, `TERM=xterm-256color`).
+- `claude` in `sbx exec` gets the setup of `sbx run`. The Claude kit puts the bypass mode, its hooks and its status
+  line into `~/.claude/settings.json`, not into arguments.
+
+Not proved: the full screen of Claude in `sbx exec -it`, and the sbx status of a sandbox with two sessions.
+
+- **The Claude login comes from the instance.** In an instance with no Claude login, `claude` in the sandbox prints
+  `Not logged in · Please run /login`, and the variable `SBX_CRED_ANTHROPIC_MODE` in the sandbox is `none`. In an
+  instance with a login, `sbx secret ls` shows the row `anthropic` with `(oauth configured)`.
+- **The wrapper selects the instance from the project folder,** not from the parent folder. Keep all project folders
+  below the marker file of the instance of the sandbox. A project folder with a marker file for another instance
+  sends `sbx exec` to that instance, where the sandbox does not exist: sbx exits with status 125.
+- **A session of `sbx exec` cannot detach.** When its terminal closes, the session ends. The sandbox and the other
+  sessions keep running. `sbx exec` starts a stopped sandbox first.
+- **Each session can write into all project folders,** because the workspace is the parent folder. For a project
+  that the other sessions must not change, use a sandbox of its own. Mount other folders read-only there:
+  `sbx run claude ./project-a ./project-b:ro`.
+
 ## Limits
 
 - **`--app-name` is a hidden argument of sbx.** Docker can remove it. Then the real `sbx` fails with an unknown
